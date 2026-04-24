@@ -42,11 +42,39 @@ def save_memory(histories):
     with open(temp_file, "w") as f:
         json.dump(histories, f, indent=2, ensure_ascii=False)
     temp_file.replace(MEMORY_FILE)
+
+def save_readable_log(user_id, username):
+    user_id = str(user_id)
+    if user_id not in conversation_histories:
+        return
     
+    user_data = conversation_histories[user_id]
+    filename = BASE_DIR / f"logs/{user_id}_{username or 'unknown'}.txt"
+    filename.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(f"USER: {username}\n")
+        f.write(f"ID: {user_id}\n")
+        f.write("=" * 40 + "\n\n")
+        
+        if user_data.get("facts"):
+            f.write("KEY FACTS:\n")
+            for fact_group in user_data["facts"]:
+                for fact in str(fact_group).splitlines():
+                    fact = fact.strip()
+                    if fact:
+                        f.write(f"{fact}\n")
+            f.write("\n" + "=" * 40 + "\n\n")
+        
+        f.write("FULL MESSAGE HISTORY:\n\n")
+        for msg in user_data.get("all_messages", user_data["messages"]):
+            role = "You" if msg["role"] == "user" else "Klima"
+            f.write(f"{role}: {msg['content']}\n\n")
+
 conversation_histories = load_memory()
 
-MAX_MESSAGES_BEFORE_COMPRESSION = 40
-MESSAGES_TO_KEEP = 30
+MAX_MESSAGES_BEFORE_COMPRESSION = 8
+MESSAGES_TO_KEEP = 4
 
 def compress_history(old_messages):
     response = requests.post(
@@ -71,10 +99,13 @@ def ask_claude(user_id, question):
     user_id = str(user_id)
     
     if user_id not in conversation_histories:
-        conversation_histories[user_id] = {"facts": [], "messages": []}
+        conversation_histories[user_id] = {"facts": [], "messages": [], "all_messages": []}
     
     user_data = conversation_histories[user_id]
+    if "all_messages" not in user_data:
+        user_data["all_messages"] = list(user_data["messages"])
     user_data["messages"].append({"role": "user", "content": question})
+    user_data["all_messages"].append({"role": "user", "content": question})
     
     if len(user_data["messages"]) > MAX_MESSAGES_BEFORE_COMPRESSION:
         old = user_data["messages"][:-MESSAGES_TO_KEEP]
@@ -106,6 +137,7 @@ def ask_claude(user_id, question):
     reply = data["content"][0]["text"]
     
     user_data["messages"].append({"role": "assistant", "content": reply})
+    user_data["all_messages"].append({"role": "assistant", "content": reply})
     save_memory(conversation_histories)
     return reply
 
@@ -116,6 +148,7 @@ def handle_message(message):
     username = message.from_user.username or message.from_user.first_name
     log_message(username, user_text)
     response = ask_claude(user_id, user_text)
+    save_readable_log(user_id, username)
     bot.reply_to(message, response)
 
 print("Bot is running...")
