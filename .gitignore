@@ -3,3 +3,4 @@ messages.json
 memory.json
 persona.txt
 logs/
+venv/
