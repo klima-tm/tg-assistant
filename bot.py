@@ -4,10 +4,17 @@ import requests
 import telebot
 import json
 from datetime import datetime
+from pathlib import Path
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+ENV_FILE = BASE_DIR / ".env"
+PERSONA_FILE = BASE_DIR / "persona.txt"
+MEMORY_FILE = BASE_DIR / "memory.json"
+MESSAGES_FILE = BASE_DIR / "messages.json"
 
-with open("persona.txt", "r") as f:
+load_dotenv(ENV_FILE)
+
+with open(PERSONA_FILE, "r") as f:
     PERSONA = f.read()
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -21,10 +28,8 @@ def log_message(user, text):
         "from": user,
         "message": text
     }
-    with open("messages.json", "a") as f:
+    with open(MESSAGES_FILE, "a") as f:
         f.write(json.dumps(entry) + "\n")
-
-MEMORY_FILE = "memory.json"
 
 def load_memory():
     if os.path.exists(MEMORY_FILE): 
@@ -33,9 +38,11 @@ def load_memory():
     return {}
 
 def save_memory(histories):
-    with open(MEMORY_FILE, "w") as f:
+    temp_file = MEMORY_FILE.with_suffix(".json.tmp")
+    with open(temp_file, "w") as f:
         json.dump(histories, f, indent=2, ensure_ascii=False)
-
+    temp_file.replace(MEMORY_FILE)
+    
 conversation_histories = load_memory()
 
 MAX_MESSAGES_BEFORE_COMPRESSION = 40
