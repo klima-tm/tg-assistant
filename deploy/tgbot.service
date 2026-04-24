@@ -1,0 +1,15 @@
+[Unit]
+Description=Telegram Assistant Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/tg-assistant
+ExecStart=/root/tg-assistant/venv/bin/python /root/tg-assistant/bot.py
+Restart=always
+RestartSec=5
+EnvironmentFile=/root/tg-assistant/.env
+
+[Install]
+WantedBy=multi-user.target
